@@ -1,0 +1,26 @@
+{
+  "config": {
+    "data_path": "../../data/raw/XAUUSD_M1.csv",
+    "source_tf": "M1",
+    "resample_label": "right",
+    "resample_closed": "right",
+    "context_tf": "H1",
+    "signal_tf": "M15",
+    "execution_tf": "M15",
+    "use_m5_refinement": false,
+    "m5_refinement_window_bars": 3,
+    "spread_points": 0.0,
+    "tp_r_multiple": 2.0,
+    "swing_lookback": 3,
+    "rolling_level_n": 20,
+    "timeout_bars_map": {
+      "M5": 30,
+      "M15": 16,
+      "H1": 8
+    },
+    "train_ratio": 0.6,
+    "val_ratio": 0.2,
+    "output_dir": "outputs_mtf_microstructure",
+    "timeout_bars": 16
+  }
+}

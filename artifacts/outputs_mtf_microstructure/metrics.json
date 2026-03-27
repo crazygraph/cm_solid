@@ -1,0 +1,14 @@
+{
+  "overall_metrics": {
+    "total_trades": 11336,
+    "win_rate": 0.45315808045165845,
+    "profit_factor": 1.249239066349402,
+    "expectancy_r": 0.10838177667543933,
+    "avg_r": 0.10838177667543933,
+    "median_r": -0.1424836601307271,
+    "sum_r": 1228.6158203927803,
+    "max_drawdown_r": -46.34985855367721,
+    "max_losing_streak": 15,
+    "avg_holding_bars": 10.313514467184191
+  }
+}

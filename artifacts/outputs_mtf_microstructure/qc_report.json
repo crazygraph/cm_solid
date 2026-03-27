@@ -1,0 +1,9 @@
+{
+  "rows":1773518,
+  "start":"2020-11-30 07:00:00+00:00",
+  "end":"2025-11-29 02:43:00+00:00",
+  "duplicate_index":0,
+  "missing_1m_gaps":1673,
+  "nonpositive_price_rows":0,
+  "null_rows":0
+}
