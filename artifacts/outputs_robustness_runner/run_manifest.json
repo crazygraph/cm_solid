@@ -1,0 +1,48 @@
+{
+  "config": {
+    "data_path": "../../data/raw/XAUUSD_M1.csv",
+    "output_dir": "outputs_robustness_runner",
+    "source_tf": "M1",
+    "context_tf": "H1",
+    "signal_tf": "M15",
+    "execution_tf": "M15",
+    "resample_label": "right",
+    "resample_closed": "right",
+    "spread_points": 0.0,
+    "slippage_points": 0.0,
+    "entry_delay_bars": 0,
+    "tp_r_multiple": 2.0,
+    "timeout_bars": 16,
+    "rolling_level_n": 20,
+    "swing_lookback": 3,
+    "cooldown_bars": 0,
+    "train_ratio": 0.6,
+    "val_ratio": 0.2,
+    "position_policy": "one_at_a_time",
+    "enabled_event_families": [
+      "sweep_reclaim",
+      "rejection",
+      "compression_expansion",
+      "momentum_break"
+    ],
+    "enabled_sessions": [
+      "asia",
+      "london",
+      "ny",
+      "ny_overlap"
+    ],
+    "atr_floor_mult": null,
+    "atr_cap_mult": null,
+    "gap_guard_minutes": 5
+  },
+  "qc": {
+    "rows": 1773518,
+    "start": "2020-11-30 07:00:00+00:00",
+    "end": "2025-11-29 02:43:00+00:00",
+    "duplicate_index": 0,
+    "missing_1m_gaps": 854226,
+    "nonpositive_price_rows": 0,
+    "null_rows": 0
+  },
+  "output_dir": "outputs_robustness_runner"
+}
