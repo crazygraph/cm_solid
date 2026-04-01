@@ -1,0 +1,8 @@
+{
+  "sample_context_timestamp": "2020-12-02 10:30:00+00:00",
+  "h1_context_ts_used": "2020-12-02 10:00:00+00:00",
+  "swing_check_ts": "2020-12-01 08:45:00+00:00",
+  "prior_lows_used_for_stop": 1776.75,
+  "current_bar_low": 1778.305,
+  "current_bar_high": 1780.495
+}

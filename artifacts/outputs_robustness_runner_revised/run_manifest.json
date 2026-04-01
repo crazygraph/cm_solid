@@ -1,0 +1,42 @@
+{
+  "config": {
+    "data_path": "../../data/raw/XAUUSD_M1.csv",
+    "output_dir": "outputs_robustness_runner_revised",
+    "source_tf": "M1",
+    "execution_tf": "M15",
+    "signal_tf": "M15",
+    "context_tf": "H1",
+    "refine_tf": "M5",
+    "resample_label": "right",
+    "resample_closed": "right",
+    "spread_points": 0.0,
+    "slippage_points": 0.0,
+    "entry_delay_bars": 0,
+    "tp_r_multiple": 2.0,
+    "timeout_bars": 16,
+    "rolling_level_n": 20,
+    "swing_lookback": 3,
+    "cooldown_bars": 0,
+    "train_ratio": 0.6,
+    "val_ratio": 0.2,
+    "position_policy": "one_at_a_time",
+    "enabled_event_families": [
+      "sweep_reclaim",
+      "rejection",
+      "compression_expansion",
+      "momentum_break"
+    ],
+    "enabled_sessions": [
+      "asia",
+      "london",
+      "ny_overlap",
+      "ny"
+    ],
+    "atr_floor_mult": null,
+    "atr_cap_mult": null,
+    "gap_guard_minutes": 5,
+    "use_m5_confirmation": false,
+    "m5_confirmation_window_bars": 3,
+    "m5_confirmation_mode": "simple_reclaim"
+  }
+}

@@ -1,0 +1,441 @@
+// © Flowrise inc — Supertrend · MA200 · Sessions · Trailing SL · Dashboard
+//@version=6
+strategy("Flowrise BOT 2.0", overlay=true, format=format.price, precision=2,
+     max_labels_count = 500,
+     max_lines_count  = 500,
+     max_boxes_count  = 500)
+
+//─────────────────────────────────────────────────────────────────────────────
+// GROUPS
+//─────────────────────────────────────────────────────────────────────────────
+GR_ST     = 'Supertrend'
+GR_MA     = 'MA 200'
+GR_SIG    = 'Signaux'
+GR_RISK   = 'Risk & Trailing SL'
+GR_TP     = 'Take Profit'
+GR_SESS   = 'Sessions'
+GR_DAYS   = 'Jours de Trading'
+GR_MONTHS = 'Mois de Trading'
+GR_DASH   = 'Dashboard'
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — SUPERTREND
+//─────────────────────────────────────────────────────────────────────────────
+Periods    = input.int(10,    "ATR Period",                     group=GR_ST, minval=1)
+src        = input.source(hl2,"Source",                         group=GR_ST)
+Multiplier = input.float(3.0, "ATR Multiplier",                 group=GR_ST, step=0.1)
+changeATR  = input.bool(true, "Change ATR Calculation Method?", group=GR_ST)
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — MA 200
+//─────────────────────────────────────────────────────────────────────────────
+ma200_period = input.int(200,   "MA 200 Period", group=GR_MA, minval=1)
+ma200_source = input.source(hl2,"MA 200 Source", group=GR_MA)
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — SIGNAUX
+//─────────────────────────────────────────────────────────────────────────────
+showsignals  = input.bool(true,    "Show Buy/Sell Signals?", group=GR_SIG)
+highlighting = input.bool(true,    "Highlighter On/Off?",    group=GR_SIG)
+trade_type   = input.string("Both","Type de Trade",          group=GR_SIG,
+     options=["Buy Only", "Sell Only", "Both"])
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — RISK & TRAILING SL
+//─────────────────────────────────────────────────────────────────────────────
+riskMode             = input.string('Composé %', 'Mode risque',    group=GR_RISK, options=['Composé %', 'Fixe $'],
+     tooltip="Composé % = risque basé sur l'équité courante (capital cumulé) | Fixe $ = montant fixe par trade")
+risk_percentage      = input.float(2.0,  "Risque %",             group=GR_RISK, minval=0.0, maxval=100, step=0.1,
+     tooltip="Utilisé en mode Composé %")
+risk_fixed           = input.float(100.0,"Montant fixe ($)",      group=GR_RISK, minval=1.0, step=10.0,
+     tooltip="Utilisé en mode Fixe $")
+stop_loss_multiplier = input.float(1.5,  "Stop Loss Multiplier", group=GR_RISK, minval=0.0, step=0.1)
+useTrail             = input.bool(false, "Trailing SL actif",    group=GR_RISK)
+trailPct             = input.float(1.5,  "Trailing SL (%)",      group=GR_RISK, minval=0.01, step=0.1,
+     tooltip="Distance du trailing stop en % du plus haut/bas depuis l'entrée")
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — TAKE PROFIT
+//─────────────────────────────────────────────────────────────────────────────
+useTP = input.bool(false, "TP fixe (R:R) actif", group=GR_TP,
+     tooltip="OFF = sortie uniquement sur Supertrend / SL")
+tpRR  = input.float(2.0,  "TP R:R",              group=GR_TP, minval=0.1, step=0.1)
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — SESSIONS
+//─────────────────────────────────────────────────────────────────────────────
+sessStartH  = input.int(9,    'Début',  group=GR_SESS, minval=1, maxval=12, inline='sess')
+sessStartAP = input.string('AM', '',  group=GR_SESS, options=['AM','PM'],  inline='sess')
+sessEndH    = input.int(5,    '→ Fin', group=GR_SESS, minval=1, maxval=12, inline='sess')
+sessEndAP   = input.string('PM', '',  group=GR_SESS, options=['AM','PM'],  inline='sess')
+useSessFilter = input.bool(false, 'Filtre session actif', group=GR_SESS,
+     tooltip='OFF = signaux toujours actifs | ON = signaux uniquement dans la session définie')
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — JOURS DE TRADING
+//─────────────────────────────────────────────────────────────────────────────
+tradeLun = input.bool(true,  'Lundi',    group=GR_DAYS, inline='days1')
+tradeMar = input.bool(true,  'Mardi',    group=GR_DAYS, inline='days1')
+tradeMer = input.bool(true,  'Mercredi', group=GR_DAYS, inline='days1')
+tradeJeu = input.bool(true,  'Jeudi',    group=GR_DAYS, inline='days2')
+tradeVen = input.bool(true,  'Vendredi', group=GR_DAYS, inline='days2')
+tradeSam = input.bool(false, 'Samedi',   group=GR_DAYS, inline='days2')
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — MOIS DE TRADING
+//─────────────────────────────────────────────────────────────────────────────
+tradeJan = input.bool(true, 'Jan', group=GR_MONTHS, inline='m1')
+tradeFev = input.bool(true, 'Fév', group=GR_MONTHS, inline='m1')
+tradeMrs = input.bool(true, 'Mar', group=GR_MONTHS, inline='m1')
+tradeAvr = input.bool(true, 'Avr', group=GR_MONTHS, inline='m1')
+tradeMai = input.bool(true, 'Mai', group=GR_MONTHS, inline='m2')
+tradeJun = input.bool(true, 'Jun', group=GR_MONTHS, inline='m2')
+tradeJul = input.bool(true, 'Jul', group=GR_MONTHS, inline='m2')
+tradeAou = input.bool(true, 'Aoû', group=GR_MONTHS, inline='m2')
+tradeSep = input.bool(true, 'Sep', group=GR_MONTHS, inline='m3')
+tradeOct = input.bool(true, 'Oct', group=GR_MONTHS, inline='m3')
+tradeNov = input.bool(true, 'Nov', group=GR_MONTHS, inline='m3')
+tradeDec = input.bool(true, 'Déc', group=GR_MONTHS, inline='m3')
+
+//─────────────────────────────────────────────────────────────────────────────
+// INPUTS — DASHBOARD
+//─────────────────────────────────────────────────────────────────────────────
+dashPosStr  = input.string('Bas Droite', 'Position tableau', group=GR_DASH,
+     options=['Haut Gauche', 'Haut Droite', 'Bas Gauche', 'Bas Droite'])
+dashSizeStr = input.string('Moyen', 'Taille tableau', group=GR_DASH,
+     options=['Petit', 'Moyen', 'Grand'])
+
+//─────────────────────────────────────────────────────────────────────────────
+// ATR / SUPERTREND
+//─────────────────────────────────────────────────────────────────────────────
+atr2 = ta.sma(ta.tr(true), Periods)
+atrv = changeATR ? ta.atr(Periods) : atr2
+
+up  = src - (Multiplier * atrv)
+up1 = nz(up[1], up)
+up  := close[1] > up1 ? math.max(up, up1) : up
+
+dn  = src + (Multiplier * atrv)
+dn1 = nz(dn[1], dn)
+dn  := close[1] < dn1 ? math.min(dn, dn1) : dn
+
+//─────────────────────────────────────────────────────────────────────────────
+// MA 200 + TREND
+//─────────────────────────────────────────────────────────────────────────────
+ma200       = ta.sma(ma200_source, ma200_period)
+ma200_trend = close > ma200 ? 1 : -1
+
+trend = 1
+trend := nz(trend[1], trend)
+trend := trend == -1 and close > dn1 ? 1 : trend == 1 and close < up1 ? -1 : trend
+
+trend_change = ta.change(trend) != 0
+
+//─────────────────────────────────────────────────────────────────────────────
+// SESSIONS
+//─────────────────────────────────────────────────────────────────────────────
+// Conversion AM/PM → heure 0-23
+sessStart24 = sessStartAP == 'AM' ? (sessStartH == 12 ? 0  : sessStartH) : (sessStartH == 12 ? 12 : sessStartH + 12)
+sessEnd24   = sessEndAP   == 'AM' ? (sessEndH   == 12 ? 0  : sessEndH)   : (sessEndH   == 12 ? 12 : sessEndH   + 12)
+curHour     = hour
+// Si fin < début → session chevauche minuit
+inSess = sessStart24 <= sessEnd24 ?
+         curHour >= sessStart24 and curHour < sessEnd24 :
+         curHour >= sessStart24 or  curHour < sessEnd24
+
+bgcolor(inSess ? color.new(#2157f3, 93) : na, title='Session')
+
+//─────────────────────────────────────────────────────────────────────────────
+// FILTRE JOURS DE LA SEMAINE
+//─────────────────────────────────────────────────────────────────────────────
+dow        = dayofweek
+tradingDay = (dow == dayofweek.monday    and tradeLun) or
+             (dow == dayofweek.tuesday   and tradeMar) or
+             (dow == dayofweek.wednesday and tradeMer) or
+             (dow == dayofweek.thursday  and tradeJeu) or
+             (dow == dayofweek.friday    and tradeVen) or
+             (dow == dayofweek.saturday  and tradeSam)
+
+mth = month
+tradingMonth = (mth ==  1 and tradeJan) or
+               (mth ==  2 and tradeFev) or
+               (mth ==  3 and tradeMrs) or
+               (mth ==  4 and tradeAvr) or
+               (mth ==  5 and tradeMai) or
+               (mth ==  6 and tradeJun) or
+               (mth ==  7 and tradeJul) or
+               (mth ==  8 and tradeAou) or
+               (mth ==  9 and tradeSep) or
+               (mth == 10 and tradeOct) or
+               (mth == 11 and tradeNov) or
+               (mth == 12 and tradeDec)
+
+//─────────────────────────────────────────────────────────────────────────────
+// CONDITIONS
+//─────────────────────────────────────────────────────────────────────────────
+sessOk = not useSessFilter or inSess
+
+buy_condition  = ma200_trend ==  1 and trend ==  1 and trend[1] == -1 and sessOk and tradingDay and tradingMonth
+sell_condition = ma200_trend == -1 and trend == -1 and trend[1] ==  1 and sessOk and tradingDay and tradingMonth
+
+//─────────────────────────────────────────────────────────────────────────────
+// ÉTAT DU TRADE — TRAILING SL + TP
+//─────────────────────────────────────────────────────────────────────────────
+var float activeSL     = na
+var float activeTP     = na
+var float entryPrice   = na
+var float entrySlDist  = na   // distance SL initiale — sert au calcul du RR réel à la sortie
+var float entryLot     = na   // lot size à l'entrée
+var float entrySLFixed = na   // SL fixe à l'entrée — ne bouge jamais dans le label
+var float cumRR        = 0.0  // RR accumulé sur tous les trades fermés
+
+if buy_condition and strategy.position_size == 0
+    slDist        = math.max(close - up, syminfo.mintick)
+    riskAmt       = riskMode == 'Fixe $' ? risk_fixed : strategy.equity * (risk_percentage / 100.0)
+    activeSL     := up
+    activeTP     := useTP ? close + slDist * tpRR : na
+    entryPrice   := close
+    entrySlDist  := slDist
+    entryLot     := riskAmt / slDist
+    entrySLFixed := up
+
+if sell_condition and strategy.position_size == 0
+    slDist        = math.max(dn - close, syminfo.mintick)
+    riskAmt       = riskMode == 'Fixe $' ? risk_fixed : strategy.equity * (risk_percentage / 100.0)
+    activeSL     := dn
+    activeTP     := useTP ? close - slDist * tpRR : na
+    entryPrice   := close
+    entrySlDist  := slDist
+    entryLot     := riskAmt / slDist
+    entrySLFixed := dn
+
+// SL suit la bande Supertrend barre par barre (trailing naturel)
+if strategy.position_size > 0
+    activeSL := up
+    if useTrail
+        trailLevel = high * (1.0 - trailPct / 100.0)
+        activeSL  := math.max(activeSL, trailLevel)
+
+if strategy.position_size < 0
+    activeSL := dn
+    if useTrail
+        trailLevel = low * (1.0 + trailPct / 100.0)
+        activeSL  := math.min(activeSL, trailLevel)
+
+// Sizing — mode Fixe $ ou Composé %
+risk_per_trade = riskMode == 'Fixe $' ? risk_fixed : strategy.equity * (risk_percentage / 100.0)
+slDistL        = math.max(close - up, syminfo.mintick)
+slDistS        = math.max(dn - close, syminfo.mintick)
+position_size  = strategy.position_size > 0 ? risk_per_trade / slDistL :
+                 strategy.position_size < 0 ? risk_per_trade / slDistS :
+                 buy_condition               ? risk_per_trade / slDistL :
+                 sell_condition              ? risk_per_trade / slDistS : 0.0
+
+// Reset à la fermeture + accumulation du RR
+if strategy.position_size == 0 and strategy.position_size[1] != 0
+    if not na(entryPrice) and not na(entrySlDist) and entrySlDist > 0 and not na(entryLot)
+        wasLong  = strategy.position_size[1] > 0
+        closedRR = wasLong ? (close - entryPrice) / entrySlDist : (entryPrice - close) / entrySlDist
+        cumRR   += closedRR
+    activeSL     := na
+    activeTP     := na
+    entryPrice   := na
+    entrySlDist  := na
+    entryLot     := na
+    entrySLFixed := na
+
+//─────────────────────────────────────────────────────────────────────────────
+// CONDITIONS DE SORTIE
+//─────────────────────────────────────────────────────────────────────────────
+tp_long  = useTP and strategy.position_size > 0 and not na(activeTP) and close >= activeTP
+tp_short = useTP and strategy.position_size < 0 and not na(activeTP) and close <= activeTP
+
+exit_condition = trend_change or tp_long or tp_short
+
+//─────────────────────────────────────────────────────────────────────────────
+// ENTRIES
+//─────────────────────────────────────────────────────────────────────────────
+if (trade_type == "Buy Only" or trade_type == "Both") and buy_condition
+    strategy.entry("Buy",  strategy.long,  qty=position_size, alert_message="SuperTrend Buy!")
+
+if (trade_type == "Sell Only" or trade_type == "Both") and sell_condition
+    strategy.entry("Sell", strategy.short, qty=position_size, alert_message="SuperTrend Sell!")
+
+//─────────────────────────────────────────────────────────────────────────────
+// EXIT
+//─────────────────────────────────────────────────────────────────────────────
+if exit_condition
+    strategy.close_all(comment="", alert_message="Exit: Trend change or Stop hit")
+
+//─────────────────────────────────────────────────────────────────────────────
+// PLOTS SUPERTREND
+//─────────────────────────────────────────────────────────────────────────────
+plot(ma200, title="MA 200", color=color.blue, linewidth=2)
+
+upPlot = plot(trend == 1  ? up : na, title="Up Trend",   style=plot.style_linebr, linewidth=2, color=color.green)
+dnPlot = plot(trend == -1 ? dn : na, title="Down Trend", style=plot.style_linebr, linewidth=2, color=color.red)
+
+plotshape(showsignals ? (buy_condition  ? up : na) : na,
+     title="Buy",  text="Buy",  location=location.absolute,
+     style=shape.labelup,   size=size.tiny, color=color.green, textcolor=color.white)
+
+plotshape(showsignals ? (sell_condition ? dn : na) : na,
+     title="Sell", text="Sell", location=location.absolute,
+     style=shape.labeldown, size=size.tiny, color=color.red, textcolor=color.white)
+
+fillColor = highlighting ? (trend == 1 ? color.green : trend == -1 ? color.red : color.white) : color.white
+fill(upPlot, dnPlot, title="Trend Highlighter", color=color.new(fillColor, 70))
+
+//─────────────────────────────────────────────────────────────────────────────
+// COURBE TRAILING SL
+//─────────────────────────────────────────────────────────────────────────────
+plot(strategy.position_size != 0 ? activeSL : na,
+     'SL Actif', color=color.new(#F85149, 0), linewidth=2, style=plot.style_linebr)
+
+//─────────────────────────────────────────────────────────────────────────────
+// VISUAL — ZONES SL/TP DYNAMIQUES + LIGNE TRAIL SL
+//─────────────────────────────────────────────────────────────────────────────
+// Logique des cases :
+//   • Case PROFIT (verte) : démarre à hauteur zéro à l'entrée, grandit
+//     barre par barre avec la bougie (close), plafonnée au TP si activé.
+//     Si le trade part direct au SL sans jamais être en profit → case invisible.
+//     Se fige à la clôture (profit atteint conservé visuellement).
+//   • Case SL (rouge) : suit le trailing SL dynamiquement, toujours conservée
+//     après la clôture même si le trade se termine en profit.
+//   • Ligne pointillée TP : petite référence fixe (seulement si useTP ON).
+//─────────────────────────────────────────────────────────────────────────────
+var box   vizTpBox = na
+var box   vizSlBox = na
+var line  vizTp    = na   // petite ligne pointillée TP fixe (si useTP ON)
+var line  vizEntry = na
+var label vizLbl   = na
+
+// ── Création à l'entrée LONG ──────────────────────────────────────────────
+if buy_condition and (trade_type == "Buy Only" or trade_type == "Both")
+    slDist    = math.max(close - up, syminfo.mintick)
+    tpLv      = useTP ? close + slDist * tpRR : na
+    // Case SL : de l'entrée vers le bas jusqu'au SL Supertrend (reste fixe)
+    vizSlBox := box.new(bar_index, close, bar_index, up,
+                             bgcolor=color.new(#F85149, 75), border_color=na)
+    // Case profit : hauteur nulle au départ — grandit avec les bougies
+    vizTpBox      := box.new(bar_index, close, bar_index, close,
+                             bgcolor=color.new(#3FB950, 70), border_color=na)
+    // Ligne TP fixe (petite référence) — uniquement si useTP activé
+    vizTp         := useTP ? line.new(bar_index, tpLv, bar_index, tpLv,
+                                      color=color.new(#3FB950, 0), width=1,
+                                      style=line.style_dashed) : na
+    vizEntry      := line.new(bar_index, close, bar_index, close,
+                              color=color.new(#FFFFFF, 40), width=1)
+    vizLbl        := label.new(bar_index, up,
+                               '▲ PE: ' + str.tostring(close, '#.####') +
+                               '\nSL: '  + str.tostring(up,    '#.####') +
+                               '\nRR: 0.00  $0.00',
+                               color=color.new(#888888, 30), textcolor=color.white,
+                               style=label.style_label_up, size=size.small)
+
+// ── Création à l'entrée SHORT ─────────────────────────────────────────────
+if sell_condition and (trade_type == "Sell Only" or trade_type == "Both")
+    slDist    = math.max(dn - close, syminfo.mintick)
+    tpLv      = useTP ? close - slDist * tpRR : na
+    // Case SL : du SL Supertrend vers le haut jusqu'à l'entrée (reste fixe)
+    vizSlBox := box.new(bar_index, dn, bar_index, close,
+                             bgcolor=color.new(#F85149, 75), border_color=na)
+    // Case profit : hauteur nulle au départ — grandit vers le bas avec les bougies
+    vizTpBox      := box.new(bar_index, close, bar_index, close,
+                             bgcolor=color.new(#3FB950, 70), border_color=na)
+    // Ligne TP fixe (petite référence) — uniquement si useTP activé
+    vizTp         := useTP ? line.new(bar_index, tpLv, bar_index, tpLv,
+                                      color=color.new(#3FB950, 0), width=1,
+                                      style=line.style_dashed) : na
+    vizEntry      := line.new(bar_index, close, bar_index, close,
+                              color=color.new(#FFFFFF, 40), width=1)
+    vizLbl        := label.new(bar_index, dn,
+                               '▼ PE: ' + str.tostring(close, '#.####') +
+                               '\nSL: '  + str.tostring(dn,    '#.####') +
+                               '\nRR: 0.00  $0.00',
+                               color=color.new(#888888, 30), textcolor=color.white,
+                               style=label.style_label_down, size=size.small)
+
+// ── Mise à jour barre par barre ───────────────────────────────────────────
+if strategy.position_size != 0 and not na(vizTpBox)
+    // Extension horizontale (boîtes + lignes fixes)
+    box.set_right(vizTpBox, bar_index)
+    box.set_right(vizSlBox, bar_index)
+    if not na(vizTp)
+        line.set_x2(vizTp, bar_index)
+    line.set_x2(vizEntry, bar_index)
+
+    // ① RR live + $ live — texte + couleur mis à jour en temps réel, label reste à sa position d'entrée
+    if not na(vizLbl) and not na(entryPrice) and not na(entrySlDist) and entrySlDist > 0 and not na(entryLot)
+        liveRR     = strategy.position_size > 0 ? (close - entryPrice) / entrySlDist : (entryPrice - close) / entrySlDist
+        liveDollar = liveRR * (entrySlDist * entryLot)
+        liveRRStr  = liveRR >= 0 ? 'RR +' + str.tostring(liveRR, '#.##') : 'RR ' + str.tostring(liveRR, '#.##')
+        liveDolStr = liveDollar >= 0 ? '  +$' + str.tostring(math.round(liveDollar, 2), '#.##') : '  -$' + str.tostring(math.abs(math.round(liveDollar, 2)), '#.##')
+        dirStr     = strategy.position_size > 0 ? '▲' : '▼'
+        liveCol    = liveRR >= 0 ? color.new(#3FB950, 20) : color.new(#F85149, 20)
+        label.set_text(vizLbl,  dirStr + ' PE: ' + str.tostring(entryPrice, '#.####') + '\nSL: ' + str.tostring(entrySLFixed, '#.####') + '\n' + liveRRStr + liveDolStr)
+        label.set_color(vizLbl, liveCol)
+
+    // ② Case profit colle au close de chaque bougie (monte ET descend avec elle)
+    //    Plafonnée au TP si activé — si close <= entryPrice, hauteur = 0 (invisible)
+    if strategy.position_size > 0
+        profitTop = not na(activeTP) ? math.min(close, activeTP) : close
+        profitTop := math.max(profitTop, entryPrice)   // jamais en dessous de l'entrée
+        box.set_top(vizTpBox,    profitTop)
+        box.set_bottom(vizTpBox, entryPrice)
+
+    if strategy.position_size < 0
+        profitBot = not na(activeTP) ? math.max(close, activeTP) : close
+        profitBot := math.min(profitBot, entryPrice)   // jamais au-dessus de l'entrée
+        box.set_bottom(vizTpBox, profitBot)
+        box.set_top(vizTpBox,    entryPrice)
+
+//─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD
+//─────────────────────────────────────────────────────────────────────────────
+dashPos  = dashPosStr == 'Haut Gauche' ? position.top_left    :
+           dashPosStr == 'Haut Droite' ? position.top_right   :
+           dashPosStr == 'Bas Gauche'  ? position.bottom_left : position.bottom_right
+dashSize = dashSizeStr == 'Petit' ? size.tiny : dashSizeStr == 'Grand' ? size.normal : size.small
+
+var table dash = table.new(dashPos, 2, 8,
+     bgcolor=color.new(#0D1117, 0),
+     border_color=color.new(#30363D, 0), border_width=1,
+     frame_color=color.new(#30363D, 0),  frame_width=1)
+
+if barstate.islast
+    initCap  = strategy.initial_capital
+    netPnl   = strategy.netprofit
+    netPct   = initCap > 0 ? (netPnl / initCap) * 100.0 : 0.0
+    wins     = strategy.wintrades
+    total    = strategy.closedtrades
+    wr       = total > 0 ? wins / total * 100.0 : 0.0
+    pnlCol   = netPnl >= 0 ? color.new(#3FB950, 0) : color.new(#F85149, 0)
+    posStr   = strategy.position_size > 0 ? 'LONG' : strategy.position_size < 0 ? 'SHORT' : 'Flat'
+    posCol   = strategy.position_size > 0 ? color.new(#3FB950, 0) :
+               strategy.position_size < 0 ? color.new(#F85149, 0) : color.new(#878b94, 0)
+    lotStr2  = not na(entryLot) and strategy.position_size != 0 ? str.tostring(entryLot, '#.###') : 'N/A'
+    rrCumStr = cumRR >= 0 ? 'RR +' + str.tostring(cumRR, '#.##') : 'RR ' + str.tostring(cumRR, '#.##')
+    rrCumCol = cumRR >= 0 ? color.new(#3FB950, 0) : color.new(#F85149, 0)
+    bg0      = color.new(#0D1117, 0)
+    gr       = color.new(#8B949E, 0)
+    wh       = color.white
+
+    table.cell(dash, 0, 0, 'P&L $',     text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 0, str.tostring(netPnl, '###.##') + ' $',   text_color=pnlCol,   text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 1, 'P&L %',     text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 1, str.tostring(netPct, '##.##') + ' %',    text_color=pnlCol,   text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 2, 'Trades',    text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 2, str.tostring(total),                      text_color=wh,       text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 3, 'Win Rate',  text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 3, str.tostring(wr, '##.#') + ' %',
+               text_color=wr >= 50 ? color.new(#3FB950,0) : color.new(#F85149,0), text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 4, 'RR cumulé', text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 4, rrCumStr,                                 text_color=rrCumCol, text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 5, 'Risque',    text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 5, str.tostring(risk_per_trade, '###.##') + ' $',
+               text_color=color.new(#F85149,0),            text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 6, 'Lot actif', text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 6, lotStr2,                                  text_color=wh,       text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 0, 7, 'Position',  text_color=gr,     text_size=dashSize, bgcolor=bg0)
+    table.cell(dash, 1, 7, posStr,                                   text_color=posCol,   text_size=dashSize, bgcolor=bg0)
