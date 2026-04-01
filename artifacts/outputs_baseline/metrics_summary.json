@@ -1,0 +1,46 @@
+{
+  "PEM_M5": {
+    "total_trades": 4990,
+    "win_rate": 0.412625250501002,
+    "profit_factor": 0.978334500597745,
+    "expectancy_r": -0.010139970945989268,
+    "median_r": -0.27598860542782666,
+    "sum_r": -50.59845502048645,
+    "max_drawdown_r": -126.34292088523968,
+    "max_losing_streak": 15,
+    "avg_holding_bars": 16.9124248496994
+  },
+  "PEM_M15": {
+    "total_trades": 1778,
+    "win_rate": 0.44938132733408326,
+    "profit_factor": 1.0792286379327263,
+    "expectancy_r": 0.030722252851867016,
+    "median_r": -0.101254119197825,
+    "sum_r": 54.62416557061955,
+    "max_drawdown_r": -41.30957541067128,
+    "max_losing_streak": 8,
+    "avg_holding_bars": 10.31496062992126
+  },
+  "VWAP_MR_M5": {
+    "total_trades": 2660,
+    "win_rate": 0.5225563909774437,
+    "profit_factor": 0.9070865906932075,
+    "expectancy_r": -0.019738344212661272,
+    "median_r": 0.030367857167503155,
+    "sum_r": -52.50399560567898,
+    "max_drawdown_r": -62.44774645765083,
+    "max_losing_streak": 9,
+    "avg_holding_bars": 16.98233082706767
+  },
+  "VWAP_MR_M15": {
+    "total_trades": 1034,
+    "win_rate": 0.48452611218568664,
+    "profit_factor": 0.9224597182344745,
+    "expectancy_r": -0.02205591944324052,
+    "median_r": -0.0241059178597322,
+    "sum_r": -22.805820704310698,
+    "max_drawdown_r": -34.57401656578612,
+    "max_losing_streak": 10,
+    "avg_holding_bars": 8.9642166344294
+  }
+}
